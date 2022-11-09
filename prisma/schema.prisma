@@ -1,0 +1,278 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model audit_logs {
+  id           Int       @id @default(autoincrement()) @db.UnsignedInt
+  reference_id String?   @db.VarChar(50)
+  payload      String?   @db.LongText
+  action_name  String?   @db.VarChar(50)
+  module_name  String?   @db.VarChar(50)
+  actioned_by  String    @db.VarChar(50)
+  actioned_on  DateTime  @default(now()) @db.DateTime(0)
+  extracted_at DateTime? @db.DateTime(0)
+}
+
+model booking_channel {
+  channel_id          String  @id @db.VarChar(35)
+  business_rules      String? @db.VarChar(3000)
+  priority            Int
+  applicable_patterns String? @db.VarChar(4000)
+  excluded_patterns   String? @db.VarChar(4000)
+}
+
+model business_rule {
+  feature_code String  @id @unique(map: "feature_code_UNIQUE") @db.VarChar(35)
+  category     String? @db.VarChar(60)
+  feature_name String? @db.VarChar(150)
+  enable_ssra  Int?    @default(0) @db.TinyInt
+}
+
+model change_of_date {
+  id                  Int           @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  policy_id           String        @db.VarChar(15)
+  waiver_option_id    Int
+  travel_start_date   DateTime?     @db.Date
+  travel_end_date     DateTime?     @db.Date
+  rebooking_range     String?       @db.VarChar(10)
+  rebooking_fee_flag  Boolean       @default(false)
+  rebook_flightno     String?       @db.VarChar(100)
+  force_sell_rbd_flag Boolean       @default(false)
+  oal_allowed_flag    Boolean
+  order_id            Int?          @db.TinyInt
+  extracted_at        DateTime?     @db.DateTime(0)
+  policy_detail       policy_detail @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "Policy_id_cod")
+
+  @@index([policy_id], map: "Policy_id_cod_idx")
+  @@index([waiver_option_id], map: "waiver_id_cod_idx")
+}
+
+model config_master {
+  id                   Int     @id @unique(map: "id_UNIQUE") @default(autoincrement()) @db.UnsignedInt
+  option_type          String? @db.VarChar(50)
+  option_value         String? @db.VarChar(100)
+  conditional_flag     Boolean @default(false)
+  active_status        Boolean @default(false)
+  option_description   String? @db.VarChar(100)
+  option_display_value String? @default("") @db.VarChar(255)
+  priority             Int?    @default(1) @db.TinyInt
+}
+
+model convert_open_ticket {
+  id                 Int           @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  policy_id          String        @db.VarChar(15)
+  waiver_option_id   Int
+  travel_start_date  DateTime?     @db.Date
+  travel_end_date    DateTime?     @db.Date
+  rebooking_fee_flag Boolean       @default(false)
+  order_id           Int?          @db.TinyInt
+  extracted_at       DateTime?     @db.DateTime(0)
+  policy_detail      policy_detail @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "policy_id_cot")
+
+  @@index([policy_id], map: "policy_id_cot_idx")
+  @@index([waiver_option_id], map: "waiver_id_cot_idx")
+}
+
+model feature_detail {
+  id                   Int                    @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  feature_name         String?                @db.VarChar(100)
+  feature_description  String?                @db.VarChar(100)
+  module               String?                @db.VarChar(100)
+  status               Boolean?
+  created_by           String?                @db.VarChar(50)
+  updated_by           String?                @db.VarChar(50)
+  created_at           DateTime               @default(now()) @db.DateTime(0)
+  updated_at           DateTime?              @db.DateTime(0)
+  role_feature_mapping role_feature_mapping[]
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model impacted_filter {
+  policy_id         String?        @db.VarChar(15)
+  origin            String?        @db.VarChar(10)
+  destination       String?        @db.VarChar(10)
+  flightno          String?        @db.VarChar(30)
+  travel_start_date DateTime?      @db.Date
+  travel_end_date   DateTime?      @db.Date
+  policy_detail     policy_detail? @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "impacted_filter_ibfk_1")
+
+  @@index([policy_id], map: "policy_id")
+  @@ignore
+}
+
+model impacted_flights {
+  id            Int           @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  policy_id     String        @db.VarChar(15)
+  flightno      String?       @db.VarChar(20)
+  origin        String?       @db.VarChar(10)
+  destination   String?       @db.VarChar(10)
+  travel_date   DateTime?     @db.Date
+  extracted_at  DateTime?     @db.DateTime(0)
+  policy_detail policy_detail @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "policy_id_fk")
+
+  @@index([policy_id], map: "policy_id_fk_idx")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by the Prisma Client.
+model impactedpnr_detail {
+  policy_id         String    @db.VarChar(15)
+  record_locator    String    @db.VarChar(10)
+  origin            String?   @db.VarChar(20)
+  destination       String?   @db.VarChar(20)
+  travel_date       DateTime  @db.Date
+  flight_number     String?   @db.VarChar(45)
+  status            Int       @default(44)
+  error_code        String?   @db.VarChar(45)
+  error_description String?   @db.VarChar(1000)
+  remarks           String?   @db.VarChar(500)
+  created_on        DateTime  @default(now()) @db.Timestamp(0)
+  edited_on         DateTime? @db.Timestamp(0)
+  try_count         Int?      @default(0)
+  is_sk_inserted    Int?      @default(0) @db.TinyInt
+  is_mis_inserted   Int?      @default(0) @db.TinyInt
+  is_rx_inserted    Int?      @default(0) @db.TinyInt
+  segment_tattoo    Int?      @default(0)
+  extracted_at      DateTime? @db.DateTime(0)
+
+  @@ignore
+}
+
+model job_detail {
+  id                Int      @id @default(autoincrement()) @db.UnsignedInt
+  job_type          String   @db.VarChar(50)
+  start_time        DateTime @default(now())
+  end_time          DateTime @default(now())
+  frequency         String?  @db.VarChar(50)
+  status            Boolean  @default(true)
+  error_description String?  @db.Text
+}
+
+model notification {
+  id              Int                        @id @default(autoincrement()) @db.UnsignedInt
+  policy_id       String?                    @db.VarChar(15)
+  role_id         String?                    @db.VarChar(15)
+  message_type    notification_message_type?
+  message_content String?                    @db.VarChar(100)
+  is_read         Int?                       @default(0) @db.TinyInt
+  created_date    DateTime?                  @default(now()) @db.DateTime(0)
+  extracted_at    DateTime?                  @db.DateTime(0)
+  policy_detail   policy_detail?             @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "notification_ibfk_1")
+
+  @@index([policy_id], map: "policy_id")
+}
+
+model policy_detail {
+  policy_id                                          String                @unique(map: "policyautoid_UNIQUE") @db.VarChar(15)
+  name                                               String                @db.VarChar(50)
+  description                                        String                @db.VarChar(1000)
+  validity_start_date                                DateTime              @db.Date
+  validity_end_date                                  DateTime              @db.Date
+  waiver_reason_id                                   Int?
+  waiver_description                                 String?               @db.VarChar(1000)
+  status                                             String                @db.VarChar(5)
+  is_1click                                          Int?                  @default(0) @db.TinyInt
+  is_archived                                        Boolean?              @default(false)
+  issuance_start_date                                DateTime?             @db.Date
+  issuance_end_date                                  DateTime?             @db.Date
+  cabin_class                                        String?               @db.VarChar(50)
+  kf_membership                                      String?               @db.VarChar(50)
+  created_on                                         DateTime?             @default(now()) @db.DateTime(0)
+  approved_on                                        DateTime?             @db.Timestamp(0)
+  edited_on                                          DateTime?             @db.Timestamp(0)
+  total_impacted_pnr                                 Int?                  @default(0)
+  is_all_pnr_queued                                  Int?                  @default(0) @db.TinyInt
+  total_processed_pnr                                Int?                  @default(0)
+  total_failed_pnr                                   Int?                  @default(0)
+  created_by                                         Int?
+  approved_by                                        Int?
+  edited_by                                          Int?
+  extracted_at                                       DateTime?             @db.DateTime(0)
+  user_access_policy_detail_approved_byTouser_access user_access?          @relation("policy_detail_approved_byTouser_access", fields: [approved_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_approved_by")
+  user_access_policy_detail_created_byTouser_access  user_access?          @relation("policy_detail_created_byTouser_access", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_created_by")
+  user_access_policy_detail_edited_byTouser_access   user_access?          @relation("policy_detail_edited_byTouser_access", fields: [edited_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_edited_by")
+  change_of_date                                     change_of_date[]
+  convert_open_ticket                                convert_open_ticket[]
+  impacted_filter                                    impacted_filter[]     @ignore
+  impacted_flights                                   impacted_flights[]
+  notification                                       notification[]
+  refund                                             refund[]
+
+  @@index([approved_by], map: "fk_approved_by")
+  @@index([created_by], map: "fk_created_by")
+  @@index([edited_by], map: "fk_edited_by")
+}
+
+model refund {
+  id               Int           @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  policy_id        String        @db.VarChar(15)
+  waiver_option_id Int
+  order_id         Int?          @db.TinyInt
+  extracted_at     DateTime?     @db.DateTime(0)
+  policy_detail    policy_detail @relation(fields: [policy_id], references: [policy_id], onDelete: NoAction, onUpdate: NoAction, map: "policy_id_ref")
+
+  @@index([policy_id], map: "policy_id_ref_idx")
+  @@index([waiver_option_id], map: "waiver_option_ref_idx")
+}
+
+model role_feature_mapping {
+  id                Int                @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  role_id           Int?
+  feature_id        Int?
+  status            Boolean?
+  feature_detail    feature_detail?    @relation(fields: [feature_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_feature")
+  user_role_details user_role_details? @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_role_rfm")
+
+  @@index([feature_id], map: "fk_feature_idx")
+  @@index([role_id], map: "fk_role_rfm_idx")
+}
+
+model user_access {
+  id                                                   Int                 @id @default(autoincrement())
+  user_id                                              String              @db.VarChar(50)
+  created_at                                           DateTime            @default(now()) @db.DateTime(0)
+  updated_at                                           DateTime?           @db.DateTime(0)
+  created_by                                           Int?
+  updated_by                                           Int?
+  status                                               Boolean?            @default(true)
+  policy_detail_policy_detail_approved_byTouser_access policy_detail[]     @relation("policy_detail_approved_byTouser_access")
+  policy_detail_policy_detail_created_byTouser_access  policy_detail[]     @relation("policy_detail_created_byTouser_access")
+  policy_detail_policy_detail_edited_byTouser_access   policy_detail[]     @relation("policy_detail_edited_byTouser_access")
+  user_role_mapping                                    user_role_mapping[]
+}
+
+model user_role_details {
+  id                   Int                    @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  role_name            String?                @db.VarChar(80)
+  role_description     String?                @db.VarChar(100)
+  status               Boolean?
+  created_by           String?                @db.VarChar(50)
+  updated_by           String?                @db.VarChar(50)
+  created_at           DateTime               @default(now()) @db.DateTime(0)
+  updated_at           DateTime?              @db.DateTime(0)
+  role_feature_mapping role_feature_mapping[]
+  user_role_mapping    user_role_mapping[]
+}
+
+model user_role_mapping {
+  id                Int                @id @unique(map: "id_UNIQUE") @default(autoincrement())
+  user_id           Int?
+  role_id           Int?
+  user_role_details user_role_details? @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_role_detail")
+  user_access       user_access?       @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_user")
+
+  @@index([role_id], map: "fk_role_detail")
+  @@index([user_id], map: "fk_user")
+}
+
+enum notification_message_type {
+  PENDING
+  EXPIRING
+  REJECTED
+  JOB_FAILED
+  JOB_COMPLETED
+}
